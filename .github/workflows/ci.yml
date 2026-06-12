@@ -10,10 +10,13 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   MINVERBUILDMETADATA: build.${{ github.run_id }}.${{ github.run_attempt}}
+# This workflow runs untrusted code from fork PRs, so it keeps a read-only token
+# and never needs secrets. Test results are published by a separate workflow
+# (test-report.yml, triggered via workflow_run) that runs in the base-repo
+# context with checks:write. See issue #1172.
 permissions:
   id-token: write
   contents: read
-  checks: write
 jobs:
   build:
     runs-on: windows-latest
@@ -35,13 +38,14 @@ jobs:
     - name: Build and Test
       run: ./Build.ps1
       shell: pwsh
-    - name: Report Test Results
-      uses: dorny/test-reporter@v1.9.1
+    - name: Upload Test Results
+      # Publishing happens in test-report.yml, which downloads this artifact.
+      uses: actions/upload-artifact@v4
       if: success() || failure()
       with:
-        name: Test Results (Windows)
+        name: test-results-Windows
         path: '**/TestResults/**/*.trx'
-        reporter: dotnet-trx
+        if-no-files-found: ignore
     - name: Get package version
       id: version
       shell: pwsh
